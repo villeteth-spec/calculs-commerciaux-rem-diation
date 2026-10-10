@@ -392,10 +392,9 @@ function buildLevels(D){
      hint:'Panier moyen = CA S42 ÷ clients. Une formule commence par =',
      corr:'<span class="code">=C3/D3</span> : le CA de la semaine 42 (C3) divisé par le nombre de clients (D3).',
      traps:[{f:'=D3/C3', m:'Mauvais sens : le CA (C3) divisé par les clients (D3).'},{f:'=B3/D3', m:'B3 est le CA de la semaine 41. Il faut celui de la semaine 42.'}]},
-    {type:'formula', cell:['C8'], prompt:'Écris la formule qui calcule le <b>CA total de la semaine 42</b> en <b>C8</b>.', ok:['=SOMME(C3:C7)','=SUM(C3:C7)','=C3+C4+C5+C6+C7'],
+    {type:'formula', cell:['C8'], prompt:'Écris la formule qui calcule le <b>CA total de la semaine 42</b> en <b>C8</b>.', check:sumCheck,
      hint:'Fonction SOMME avec une plage de cellules : =SOMME(première:dernière)',
-     corr:'<span class="code">=SOMME(C3:C7)</span> : les deux-points « : » veulent dire « de C3 jusqu\'à C7 ».',
-     traps:[{f:'=SOMME(C3;C7)', m:'Avec « ; » Excel additionne seulement C3 et C7. Pour une plage, utilise « : ».'},{f:'=SOMME(C2:C7)', m:'C2 contient le titre de la colonne, commence à C3.'},{f:'=SOMME(C3:C8)', m:'C8 est la cellule où tu écris : elle ne peut pas s\'additionner elle-même.'}]},
+     corr:'<span class="code">=SOMME(C3:C7)</span> : les deux-points « : » veulent dire « de C3 jusqu\'à C7 ». (=C3+C4+C5+C6+C7 marche aussi, mais SOMME est plus rapide.)'},
     {type:'formula', cell:['F3'], prompt:'Écris la formule de la <b>part du CA</b> du premier vendeur en <b>F3</b>, pour pouvoir la recopier vers le bas. Le CA total est en C8.', ok:['=C3/$C$8','=C3/$C$8*100','=C3/C$8','=C3/C$8*100','=(C3/$C$8)*100'],
      hint:'CA du vendeur ÷ CA total. Le total doit rester bloqué quand on recopie : pense aux $.',
      corr:'<span class="code">=C3/$C$8</span> puis format pourcentage. Les <b>$</b> bloquent la cellule C8 : quand on recopie, C3 devient C4, C5… mais $C$8 reste $C$8.',
@@ -526,6 +525,38 @@ function potential(){ return Math.max(0,(S.tries===0?10:5) - (S.hinted?3:0)); }
 function updPts(){ $('#pts').textContent = potential()+' pts'; }
 function showFb(kind,title,html){ $('#fb').innerHTML = `<div class="fb ${kind}"><span class="t">${title}</span><div class="calcline">${html}</div></div>`; }
 
+
+function sumCheck(f){
+  const C=['C3','C4','C5','C6','C7'];
+  const colMsg=c=> c==='B'?'La colonne B contient le CA de la semaine 41. On veut la semaine 42 : colonne C.'
+    : c==='D'?'La colonne D contient le nombre de clients, pas le CA.' : 'Le CA de la semaine 42 se trouve dans la colonne C.';
+  if(/^=SOMME\(/.test(f) && !f.endsWith(')')) return 'Il manque la parenthèse fermante « ) » à la fin.';
+  if(/^=SOMME$|^=SOMME\(\)$/.test(f)) return 'Indique entre parenthèses les cellules à additionner.';
+  const m=f.match(/^=SOMME\((.*)\)$/);
+  let refs;
+  if(m){
+    const r=m[1].match(/^([A-Z]+)(\d+):([A-Z]+)(\d+)$/);
+    if(r){
+      if(r[1]!==r[3]) return 'La plage doit rester dans une seule colonne : de C3 à C7.';
+      if(r[1]!=='C') return colMsg(r[1]);
+      const a=Math.min(+r[2],+r[4]), b=Math.max(+r[2],+r[4]);
+      if(a===3&&b===7) return true;
+      if(b>=8) return 'C8 est la cellule où tu écris : elle ne peut pas s\'additionner elle-même. Arrête la plage à C7.';
+      if(a<3) return 'C2 contient le titre de la colonne : commence la plage à C3.';
+      return 'Il manque des vendeurs : la plage doit aller de C3 à C7.';
+    }
+    refs=m[1].split(/[;+]/);
+    if(refs.length===2 && refs.includes('C3') && refs.includes('C7') && m[1].includes(';')) return 'Avec « ; » Excel additionne seulement C3 et C7. Pour une plage, utilise « : » : =SOMME(C3:C7).';
+  } else refs=f.slice(1).split('+');
+  if(!refs.every(x=>/^[A-Z]+\d+$/.test(x))) return false;
+  const cols=[...new Set(refs.map(x=>x.replace(/\d+/,'')))];
+  if(cols.length===1 && cols[0]!=='C') return colMsg(cols[0]);
+  const s=refs.slice().sort();
+  if(s.length===5 && s.every((x,i)=>x===C[i])) return true;
+  if(refs.includes('C8')) return 'C8 est la cellule où tu écris : elle ne peut pas s\'additionner elle-même.';
+  if(refs.every(x=>C.includes(x))) return new Set(refs).size<refs.length ? 'Une cellule est comptée deux fois.' : 'Il manque des vendeurs : il faut additionner C3, C4, C5, C6 et C7.';
+  return false;
+}
 function normF(s){ return s.toUpperCase().replace(/[\s ]/g,'').replace(/,/g,';').replace(/^=SUM\(/,'=SOMME(').replace(/[−–]/g,'-').replace(/×/g,'*').replace(/÷/g,'/'); }
 
 function check(){
@@ -545,8 +576,9 @@ function check(){
     if(!raw){ showFb('hint','Case vide','Écris ta formule.'); return; }
     if(!raw.startsWith('=')){ showFb('hint','Il manque quelque chose','Dans Excel, une formule commence toujours par le signe <span class="code">=</span>. Ajoute-le, ça ne compte pas comme un essai.'); return; }
     const f=normF(raw);
-    ok = q.ok.map(normF).includes(f);
-    if(!ok && q.traps) for(const t of q.traps){ if(normF(t.f)===f){ trapMsg=t.m; break; } }
+    if(q.check){ const r=q.check(f); ok = r===true; if(typeof r==='string') trapMsg=r; }
+    else { ok = q.ok.map(normF).includes(f);
+      if(!ok && q.traps) for(const t of q.traps){ if(normF(t.f)===f){ trapMsg=t.m; break; } } }
     $('#ans').classList.toggle('ok',ok); $('#ans').classList.toggle('bad',!ok);
   } else if(q.type==='multi'){
     let all=true, missing=false, forgot100=0;
