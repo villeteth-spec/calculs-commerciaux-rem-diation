@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Le Défi du Magasin</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+body{margin:0}
+/* Layout : une colonne de jeu (document + question), une calculatrice flottante déplaçable par-dessus. */
+:root{
+  --bg:#F4F2F7; --surface:#FFFFFF; --sunk:#EDEAF3; --ink:#1D1A29; --muted:#615C73; --line:#DCD7E6;
+  --accent:#A3245E; --accent-ink:#FFFFFF; --accent-soft:#F6E3EC;
+  --ok:#11795F; --ok-bg:#E2F4EE; --bad:#B42318; --bad-bg:#FBE9E7; --hint:#8A5200; --hint-bg:#FFF1D6;
+  --calc:#24202F; --calc-key:#363044; --calc-ink:#F3F0FA; --calc-screen:#D9E8C9; --calc-screen-ink:#1F2A14;
+  --cell-target:#FFE7A3;
+  --f-display:"Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#15131C; --surface:#1F1C29; --sunk:#191621; --ink:#EEEAF6; --muted:#A39DB5; --line:#353046;
+  --accent:#E0659A; --accent-ink:#1A0D14; --accent-soft:#3A1E2C;
+  --ok:#4CC9A0; --ok-bg:#12322A; --bad:#FF8A7A; --bad-bg:#3A1A17; --hint:#F0B65A; --hint-bg:#3A2C12;
+  --calc:#0E0C13; --calc-key:#2B2638; --calc-ink:#F3F0FA; --calc-screen:#B9CFA4; --calc-screen-ink:#18210F;
+  --cell-target:#5A4712; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#15131C; --surface:#1F1C29; --sunk:#191621; --ink:#EEEAF6; --muted:#A39DB5; --line:#353046;
+  --accent:#E0659A; --accent-ink:#1A0D14; --accent-soft:#3A1E2C;
+  --ok:#4CC9A0; --ok-bg:#12322A; --bad:#FF8A7A; --bad-bg:#3A1A17; --hint:#F0B65A; --hint-bg:#3A2C12;
+  --calc:#0E0C13; --calc-key:#2B2638; --calc-ink:#F3F0FA; --calc-screen:#B9CFA4; --calc-screen-ink:#18210F;
+  --cell-target:#5A4712; color-scheme:dark }
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg); color:var(--ink); font-family:var(--f-body); font-size:16px; line-height:1.5}
+.wrap{max-width:780px; margin:0 auto; padding-inline:16px; padding-block:20px 120px; display:flex; flex-direction:column; gap:16px}
+h1,h2,h3{font-family:var(--f-display); line-height:1.15; text-wrap:balance; margin:0}
+h1{font-size:clamp(2rem,6vw,3.1rem); font-weight:800; letter-spacing:-.02em}
+h2{font-size:1.45rem; font-weight:800}
+h3{font-size:1.1rem; font-weight:600}
+p{margin:0}
+.eyebrow{font-size:.75rem; text-transform:uppercase; letter-spacing:.09em; color:var(--muted); font-weight:700}
+.num{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+button{font:inherit; cursor:pointer}
+:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+
+.btn{border:0; border-radius:10px; padding:.7rem 1.15rem; font-weight:700; background:var(--accent); color:var(--accent-ink)}
+.btn:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent; color:var(--ink); border:1.5px solid var(--line)}
+.btn.ghost:hover{border-color:var(--accent)}
+.btn.small{padding:.45rem .8rem; font-size:.9rem}
+.btn[disabled]{opacity:.45; cursor:not-allowed}
+
+/* Intro */
+.hero{display:flex; flex-direction:column; gap:14px; padding-block:12px 4px}
+.hero .lead{font-size:1.1rem; color:var(--muted); max-width:60ch}
+.rayons{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px}
+.rayon{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:12px 14px; display:flex; gap:12px; align-items:flex-start}
+.rayon .n{font-family:var(--f-display); font-weight:800; font-size:1.5rem; color:var(--accent); line-height:1}
+.rayon b{display:block}
+.rayon small{color:var(--muted)}
+.rules{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:10px}
+.rules ul{margin:0; padding-left:1.2rem; display:flex; flex-direction:column; gap:4px}
+.start-row{display:flex; flex-wrap:wrap; gap:10px; align-items:end}
+.field{display:flex; flex-direction:column; gap:4px; flex:1 1 220px}
+.field label{font-weight:700; font-size:.9rem}
+input.text,input.answer{font:inherit; font-family:var(--f-mono); padding:.6rem .75rem; border-radius:9px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink); min-width:0}
+input.text{font-family:var(--f-body)}
+input.answer:focus,input.text:focus{border-color:var(--accent); outline:none; box-shadow:0 0 0 3px var(--accent-soft)}
+input.answer.ok{border-color:var(--ok); background:var(--ok-bg)}
+input.answer.bad{border-color:var(--bad); background:var(--bad-bg)}
+
+/* HUD */
+.hud{position:sticky; top:env(safe-area-inset-top,0px); z-index:5; background:var(--bg); padding-block:8px; border-bottom:1px solid var(--line); display:flex; flex-wrap:wrap; gap:8px 16px; align-items:center; justify-content:space-between}
+.hud .lvl{display:flex; flex-direction:column; min-width:0}
+.hud .lvl b{font-family:var(--f-display); font-size:1.1rem}
+.stats{display:flex; gap:14px; align-items:center}
+.stat{display:flex; flex-direction:column; align-items:flex-end}
+.stat span{font-size:.7rem; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); font-weight:700}
+.stat b{font-family:var(--f-mono); font-size:1.15rem}
+.streak b{color:var(--accent)}
+.track{display:flex; gap:4px; width:100%}
+.track i{flex:1; height:6px; border-radius:3px; background:var(--line)}
+.track i.done{background:var(--ok)}
+.track i.miss{background:var(--bad)}
+.track i.cur{background:var(--accent)}
+
+/* Document */
+.doc{background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:14px 16px; display:flex; flex-direction:column; gap:10px}
+.doc .ctx{color:var(--muted); font-size:.95rem}
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse; width:100%; font-size:.93rem}
+th,td{padding:6px 10px; border-bottom:1px solid var(--line); text-align:right; white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:.75rem; text-transform:uppercase; letter-spacing:.06em; color:var(--muted)}
+td{font-family:var(--f-mono); font-variant-numeric:tabular-nums}
+td:first-child{font-family:var(--f-body)}
+tr.total td{font-weight:700; border-top:2px solid var(--ink)}
+
+/* Feuille Excel */
+.sheet{border-collapse:collapse; font-size:.85rem; width:auto}
+.sheet th,.sheet td{border:1px solid var(--line); padding:4px 8px; text-align:right; font-family:var(--f-mono)}
+.sheet th{background:var(--sunk); color:var(--muted); font-weight:600; text-align:center; font-size:.75rem; letter-spacing:0; text-transform:none}
+.sheet td.hd{font-family:var(--f-body); font-weight:700; text-align:center; background:var(--sunk)}
+.sheet td.lbl{text-align:left; font-family:var(--f-body)}
+.sheet td.q{color:var(--muted); text-align:center}
+.sheet td.target{background:var(--cell-target); color:var(--ink); font-weight:700; outline:2px solid var(--accent); outline-offset:-2px}
+
+/* Question */
+.card{background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:18px; display:flex; flex-direction:column; gap:14px}
+.card .qnum{display:flex; justify-content:space-between; gap:8px; align-items:center}
+.pts{font-family:var(--f-mono); font-size:.8rem; padding:2px 8px; border-radius:99px; background:var(--accent-soft); color:var(--accent); font-weight:600}
+.prompt{font-size:1.08rem}
+.prompt b{color:var(--accent)}
+.ans-row{display:flex; flex-wrap:wrap; gap:8px; align-items:center}
+.ans-row input.answer{flex:1 1 180px; font-size:1.1rem}
+.unit{font-family:var(--f-mono); color:var(--muted); font-weight:600}
+.choices{display:grid; gap:8px}
+.choice{text-align:left; background:var(--sunk); color:var(--ink); border:1.5px solid var(--line); border-radius:10px; padding:.7rem .9rem}
+.choice:hover:not([disabled]){border-color:var(--accent)}
+.choice.picked-bad{border-color:var(--bad); background:var(--bad-bg)}
+.choice.right{border-color:var(--ok); background:var(--ok-bg)}
+.choice[disabled]{cursor:default}
+.multi{display:grid; grid-template-columns:auto 1fr auto; gap:8px 10px; align-items:center}
+.multi label{font-weight:700}
+.multi .eff{font-family:var(--f-mono); color:var(--muted); font-size:.9rem}
+.multi input.answer{width:100%}
+.actions{display:flex; flex-wrap:wrap; gap:8px; justify-content:space-between; align-items:center}
+.actions .l{display:flex; gap:8px; flex-wrap:wrap}
+.fb{border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:6px}
+.fb.ok{background:var(--ok-bg); border:1px solid var(--ok)}
+.fb.bad{background:var(--bad-bg); border:1px solid var(--bad)}
+.fb.hint{background:var(--hint-bg); border:1px solid var(--hint)}
+.fb .t{font-weight:700}
+.fb.ok .t{color:var(--ok)} .fb.bad .t{color:var(--bad)} .fb.hint .t{color:var(--hint)}
+.calcline{font-family:var(--f-mono); font-size:.95rem; overflow-wrap:anywhere}
+code,.code{font-family:var(--f-mono); background:var(--sunk); padding:1px 6px; border-radius:5px; border:1px solid var(--line)}
+
+/* Fin */
+.result{display:flex; flex-direction:column; gap:14px}
+.bigscore{font-family:var(--f-display); font-weight:800; font-size:clamp(2.6rem,10vw,4.2rem); line-height:1}
+.badge{display:inline-block; padding:.35rem .8rem; border-radius:99px; background:var(--accent); color:var(--accent-ink); font-weight:700}
+.lvl-res{display:grid; gap:8px}
+.lvl-res .row{display:grid; grid-template-columns:1fr auto auto; gap:12px; align-items:center; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:10px 14px}
+.stars{font-size:1.1rem; letter-spacing:2px; color:var(--hint)}
+.stars .off{color:var(--line)}
+.tag{font-size:.75rem; font-weight:700; padding:2px 8px; border-radius:99px}
+.tag.ok{background:var(--ok-bg); color:var(--ok)} .tag.bad{background:var(--bad-bg); color:var(--bad)}
+.memo{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:10px}
+.memo div{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:12px; display:flex; flex-direction:column; gap:4px}
+.memo b{font-family:var(--f-display)}
+.memo .f{font-family:var(--f-mono); font-size:.88rem}
+
+/* Envoi */
+.sendbox{background:var(--surface); border:2px solid var(--accent); border-radius:14px; padding:16px; display:flex; flex-direction:column; gap:10px}
+.send-actions{display:flex; flex-wrap:wrap; gap:8px}
+textarea.sum{font:inherit; font-family:var(--f-mono); font-size:.85rem; width:100%; padding:10px; border-radius:9px; border:1.5px solid var(--line); background:var(--sunk); color:var(--ink); resize:vertical}
+select.text{font:inherit; padding:.6rem .75rem; border-radius:9px; border:1.5px solid var(--line); background:var(--surface); color:var(--ink)}
+details.rules summary{cursor:pointer}
+.bar{display:block; width:min(180px,30vw); height:8px; border-radius:4px; background:var(--line); overflow:hidden}
+.bar i{display:block; height:100%}
+
+/* Calculatrice */
+.calc{position:fixed; z-index:50; width:260px; background:var(--calc); color:var(--calc-ink); border-radius:16px; box-shadow:0 18px 40px -12px rgba(0,0,0,.45),0 2px 6px rgba(0,0,0,.25); user-select:none}
+.calc-bar{display:flex; align-items:center; justify-content:space-between; padding:8px 10px 6px 14px; cursor:grab; touch-action:none; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; font-weight:700; color:#CFC8DE}
+.calc-bar.drag{cursor:grabbing}
+.calc-bar .grip{display:flex; gap:3px}
+.calc-bar .grip i{width:4px; height:4px; border-radius:50%; background:#6E6680}
+.calc-bar button{background:transparent; border:0; color:#CFC8DE; font-size:1.1rem; width:28px; height:28px; border-radius:6px; line-height:1}
+.calc-bar button:hover{background:var(--calc-key)}
+.screen{margin:0 10px; background:var(--calc-screen); color:var(--calc-screen-ink); border-radius:8px; padding:6px 10px; font-family:var(--f-mono); text-align:right; box-shadow:inset 0 2px 4px rgba(0,0,0,.25)}
+.screen .prev{font-size:.72rem; min-height:1.1em; opacity:.65; overflow:hidden; white-space:nowrap; text-overflow:ellipsis}
+.screen .expr{font-size:.95rem; min-height:1.3em; overflow-wrap:anywhere}
+.screen .res{font-size:1.5rem; font-weight:600; min-height:1.4em; overflow-wrap:anywhere}
+.keys{display:grid; grid-template-columns:repeat(4,1fr); gap:6px; padding:10px}
+.keys button{background:var(--calc-key); color:var(--calc-ink); border:0; border-radius:9px; padding:10px 0; font-family:var(--f-mono); font-size:1.05rem; font-weight:600}
+.keys button:hover{filter:brightness(1.25)}
+.keys button:active{transform:translateY(1px)}
+.keys .op{background:#4A3F5E}
+.keys .eq{background:var(--accent); color:var(--accent-ink)}
+.keys .clr{background:#6B2E3C}
+.keys .wide{grid-column:span 2; font-family:var(--f-body); font-size:.9rem; white-space:nowrap}
+.calc-fab{position:fixed; right:16px; bottom:calc(16px + env(safe-area-inset-bottom,0px)); z-index:50; display:flex; align-items:center; gap:8px; background:var(--calc); color:var(--calc-ink); border:0; border-radius:99px; padding:.7rem 1.1rem; font-weight:700; box-shadow:0 10px 24px -8px rgba(0,0,0,.5)}
+.calc-fab svg{width:20px; height:20px}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important; animation:none!important} }
+.pop{animation:pop .35s ease-out}
+@keyframes pop{0%{transform:scale(.97)}60%{transform:scale(1.015)}100%{transform:scale(1)}}
+</style>
+
+</head>
+<body>
+<div class="wrap" id="app"></div>
+
+<!-- Calculatrice -->
+<div class="calc" id="calc" role="dialog" aria-label="Calculatrice" tabindex="-1">
+  <div class="calc-bar" id="calcBar">
+    <span style="display:flex;gap:8px;align-items:center"><span class="grip"><i></i><i></i><i></i></span>Calculatrice</span>
+    <button id="calcMin" aria-label="Réduire la calculatrice" title="Réduire">–</button>
+  </div>
+  <div class="screen" aria-live="polite">
+    <div class="prev" id="cPrev"></div>
+    <div class="expr" id="cExpr"></div>
+    <div class="res" id="cRes">0</div>
+  </div>
+  <div class="keys" id="keys">
+    <button class="clr" data-k="C">C</button><button class="op" data-k="(">(</button><button class="op" data-k=")">)</button><button class="op" data-k="÷">÷</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button><button class="op" data-k="×">×</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button><button class="op" data-k="−">−</button>
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button><button class="op" data-k="+">+</button>
+    <button data-k="0">0</button><button data-k=",">,</button><button data-k="⌫" aria-label="Effacer le dernier caractère">⌫</button><button class="eq" data-k="=">=</button>
+    <button class="wide" data-k="ANS" title="Réutiliser le dernier résultat">Ans</button><button class="wide" data-k="INS" title="Copier le résultat dans la case réponse">→ Réponse</button>
+  </div>
+</div>
+<button class="calc-fab" id="calcFab" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2.5" width="14" height="19" rx="2.5"/><rect x="8" y="5.5" width="8" height="4" rx="1"/><path d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01M15.5 16.5h.01"/></svg>Calculatrice</button>
+
+<script>
+/* ================= Outils ================= */
+const $ = s => document.querySelector(s);
+const rnd = (a,b) => Math.floor(Math.random()*(b-a+1))+a;
+const r2 = x => Math.round(x*100)/100;
+const fr = (x,d=2) => Number(x).toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const eur = x => Number(x).toLocaleString('fr-FR',{maximumFractionDigits:2}) + ' €';
+const ent = x => Number(x).toLocaleString('fr-FR');
+const sg = x => (x>0?'+':'') + fr(x) ;
+const esc = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];} return a; }
+
+function parseNum(s){
+  if(s==null) return NaN;
+  let t = String(s).replace(/[\s  ]/g,'').replace(/[€%]/g,'').replace(/(salari[ée]s?|femmes?|hommes?|euros?|clients?)/gi,'')
+    .replace(/[−–]/g,'-').replace(',', '.');
+  if(t.startsWith('+')) t=t.slice(1);
+  if(!/^-?\d+(\.\d+)?$/.test(t)) return NaN;
+  return parseFloat(t);
+}
+const close = (v,x) => Math.abs(v-x) <= 0.0051 || Math.abs(v-r2(x)) < 1e-9;
+
+/* ================= Génération des données ================= */
+const PRENOMS = ['Inès','Lucas','Yasmine','Théo','Chloé','Nolan','Maëlys','Rayan','Léna','Enzo','Sarah','Hugo'];
+function genData(){
+  const noms = shuffle(PRENOMS).slice(0,5);
+  const vend = noms.map((nom,i)=>{
+    const clients = rnd(45,90), panier = rnd(36,62), ca2 = clients*panier;
+    let t;
+    if(i===0) t = rnd(5,15)/100; else if(i===1) t = -rnd(3,9)/100; else t = rnd(-2,14)/100;
+    let ca1 = Math.round(ca2/(1+t)/10)*10;
+    if(i===0 && ca1>=ca2) ca1 = ca2-50;
+    if(i===1 && ca1<=ca2) ca1 = ca2+60;
+    return {nom, clients, ca1, ca2};
+  });
+  const tot1 = vend.reduce((s,v)=>s+v.ca1,0), tot2 = vend.reduce((s,v)=>s+v.ca2,0), totC = vend.reduce((s,v)=>s+v.clients,0);
+  // statistiques
+  const y = []; y[0]=rnd(80,140); y[1]=y[0]+rnd(4,9); y[2]=y[1]+rnd(3,8); y[3]=y[2]-rnd(4,9); y[4]=y[3]+rnd(3,8);
+  const T = y[4];
+  const H = Math.round(T*rnd(35,65)/100);
+  const app=rnd(4,10), int=rnd(6,14), cdd=rnd(12,24), cdi=T-app-int-cdd;
+  const cible = {panier: rnd(9,12)*5, clients: rnd(6,9)*10};
+  return {vend, tot1, tot2, totC, y, T, H, contrats:[['Apprentissage',app],['Intérim',int],['CDD',cdd],['CDI',cdi]], cible};
+}
+
+/* ================= Documents ================= */
+function docVendeurs(D, opts={}){
+  const rows = D.vend.map(v=>`<tr><td>${v.nom}</td><td>${ent(v.ca1)} €</td><td>${ent(v.ca2)} €</td><td>${v.clients}</td></tr>`).join('');
+  const tot = opts.total ? `<tr class="total"><td>Total</td><td>${ent(D.tot1)} €</td><td>${ent(D.tot2)} €</td><td>${D.totC}</td></tr>` : '';
+  return `<div class="doc"><span class="eyebrow">Document 1 · Parfumerie Mirabelle, Metz</span>
+  <p class="ctx">Tu es en PFMP. Ta responsable veut faire le bilan des ventes des cinq vendeurs entre la semaine 41 et la semaine 42.</p>
+  <div class="tbl-wrap"><table><thead><tr><th>Vendeur</th><th>CA sem. 41</th><th>CA sem. 42</th><th>Clients sem. 42</th></tr></thead><tbody>${rows}${tot}</tbody></table></div></div>`;
+}
+function docSalaries(D){
+  return `<div class="doc"><span class="eyebrow">Document 2 · Brasserie des Trois Frontières</span>
+  <p class="ctx">La brasserie emploie <b class="num">${D.T}</b> salariés. Le responsable veut connaître la composition de son personnel.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px">
+   <div class="tbl-wrap"><table><thead><tr><th>Sexe</th><th>Effectif</th></tr></thead><tbody>
+    <tr><td>Hommes</td><td>${D.H}</td></tr><tr><td>Femmes</td><td>?</td></tr><tr class="total"><td>Total</td><td>${D.T}</td></tr></tbody></table></div>
+   <div class="tbl-wrap"><table><thead><tr><th>Contrat</th><th>Effectif</th></tr></thead><tbody>
+    ${D.contrats.map(c=>`<tr><td>${c[0]}</td><td>${c[1]}</td></tr>`).join('')}<tr class="total"><td>Total</td><td>${D.T}</td></tr></tbody></table></div>
+  </div>
+  <div class="tbl-wrap"><table><thead><tr><th>Année</th>${[2021,2022,2023,2024,2025].map(a=>`<th>${a}</th>`).join('')}</tr></thead>
+  <tbody><tr><td>Effectif</td>${D.y.map(v=>`<td>${v}</td>`).join('')}</tr></tbody></table></div></div>`;
+}
+function docSheet(D, target){
+  const cols=['A','B','C','D','E','F','G'];
+  const head=['VENDEURS','CA S41','CA S42','Clients S42','Panier moyen','Part du CA','Taux d\'évol.'];
+  const cell=(ref,content,cls='')=>`<td class="${cls}${target&&target.includes(ref)?' target':''}">${content}</td>`;
+  let h=`<tr><th></th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr>`;
+  h+=`<tr><th>2</th>${head.map((t,i)=>cell(cols[i]+2,t,'hd')).join('')}</tr>`;
+  D.vend.forEach((v,i)=>{const r=i+3;
+    h+=`<tr><th>${r}</th>${cell('A'+r,v.nom,'lbl')}${cell('B'+r,ent(v.ca1)+' €')}${cell('C'+r,ent(v.ca2)+' €')}${cell('D'+r,v.clients)}${cell('E'+r,'?','q')}${cell('F'+r,'?','q')}${cell('G'+r,'?','q')}</tr>`;});
+  h+=`<tr><th>8</th>${cell('A8','TOTAL','lbl')}${cell('B8',ent(D.tot1)+' €')}${cell('C8','?','q')}${cell('D8',D.totC)}${cell('E8','','')}${cell('F8','','')}${cell('G8','','')}</tr>`;
+  return `<div class="doc"><span class="eyebrow">Document 3 · Le tableau Excel de la parfumerie</span>
+  <p class="ctx">On veut automatiser les calculs. La case surlignée est celle de la question.</p>
+  <div class="tbl-wrap"><table class="sheet">${h}</table></div></div>`;
+}
+
+/* ================= Questions ================= */
+function buildLevels(D){
+  const [A,B,C,Dv,E] = D.vend;
+  const pA=A.ca2/A.clients, pC=C.ca2/C.clients;
+  const partA=A.ca2/D.tot2*100, partC=C.ca2/D.tot2*100;
+  const tA=(A.ca2-A.ca1)/A.ca1*100, tB=(B.ca2-B.ca1)/B.ca1*100;
+  const best = D.vend.reduce((m,v)=>v.ca2>m.ca2?v:m);
+  const F=D.T-D.H, pH=D.H/D.T*100, pF=F/D.T*100;
+  const sumY=D.y.reduce((s,v)=>s+v,0), moy=sumY/5;
+  const t12=(D.y[1]-D.y[0])/D.y[0]*100, t34=(D.y[3]-D.y[2])/D.y[2]*100, t15=(D.y[4]-D.y[0])/D.y[0]*100;
+  const caCible = D.cible.panier*D.cible.clients;
+
+  const TAUX = 'Taux d\'évolution = (valeur d\'arrivée − valeur de départ) ÷ valeur de départ × 100';
+  return [
+  { titre:'Panier moyen', sous:'Combien dépense un client en moyenne ?', doc:()=>docVendeurs(D), qs:[
+    {type:'num', unit:'€', prompt:`Calcule le <b>panier moyen</b> de <b>${A.nom}</b> en semaine 42.`, ans:pA,
+     hint:'Panier moyen = CA ÷ nombre de clients',
+     corr:`${ent(A.ca2)} ÷ ${A.clients} = <b>${fr(pA)} €</b>`,
+     traps:[{v:A.clients/A.ca2, m:'Tu as divisé dans le mauvais sens : on divise le CA par le nombre de clients.'},{v:A.ca1/A.clients, m:'Attention : il faut le CA de la semaine 42, pas celui de la semaine 41.'}]},
+    {type:'num', unit:'€', prompt:`Calcule le <b>panier moyen</b> de <b>${C.nom}</b> en semaine 42.`, ans:pC,
+     hint:'Panier moyen = CA ÷ nombre de clients',
+     corr:`${ent(C.ca2)} ÷ ${C.clients} = <b>${fr(pC)} €</b>`,
+     traps:[{v:C.clients/C.ca2, m:'Tu as divisé dans le mauvais sens : CA ÷ clients.'},{v:C.ca1/C.clients, m:'Prends le CA de la semaine 42.'}]},
+    {type:'num', unit:'€', prompt:`Défi inverse : la semaine prochaine, ${E.nom} vise un panier moyen de <b>${D.cible.panier} €</b> avec <b>${D.cible.clients} clients</b>. Quel CA réalisera-t-il/elle ?`, ans:caCible,
+     hint:'Si panier moyen = CA ÷ clients, alors CA = panier moyen × clients',
+     corr:`${D.cible.panier} × ${D.cible.clients} = <b>${ent(caCible)} €</b>`,
+     traps:[{v:D.cible.panier/D.cible.clients, m:'Ici on cherche le CA : il faut multiplier, pas diviser.'}]},
+    {type:'qcm', prompt:'Le panier moyen sert à mesurer…', choices:[
+      ['le montant moyen dépensé par un client', true],['le nombre de clients venus dans la semaine', false],['la part du vendeur dans le CA du magasin', false],['la hausse des ventes d\'une semaine à l\'autre', false]],
+     corr:'Le panier moyen indique <b>combien un client dépense en moyenne</b> à chaque passage en caisse.'}
+  ]},
+  { titre:'Part du CA', sous:'Quelle part du gâteau pour chaque vendeur ?', doc:()=>docVendeurs(D,{total:true}), qs:[
+    {type:'num', unit:'%', prompt:`Le CA total de la semaine 42 est de <b>${ent(D.tot2)} €</b>. Calcule la <b>part du CA</b> de <b>${A.nom}</b>.`, ans:partA,
+     hint:'Part du CA = CA du vendeur ÷ CA total × 100',
+     corr:`${ent(A.ca2)} ÷ ${ent(D.tot2)} × 100 = <b>${fr(partA)} %</b>`,
+     traps:[{v:partA/100, m:'Presque ! Tu as oublié de multiplier par 100 pour obtenir un pourcentage.'},{v:D.tot2/A.ca2*100, m:'Tu as divisé dans le mauvais sens : la partie ÷ le tout.'}]},
+    {type:'num', unit:'%', prompt:`Calcule la <b>part du CA</b> de <b>${C.nom}</b> en semaine 42.`, ans:partC,
+     hint:'Part du CA = CA du vendeur ÷ CA total × 100',
+     corr:`${ent(C.ca2)} ÷ ${ent(D.tot2)} × 100 = <b>${fr(partC)} %</b>`,
+     traps:[{v:partC/100, m:'N\'oublie pas le × 100.'},{v:D.tot2/C.ca2*100, m:'La partie ÷ le tout, pas l\'inverse.'}]},
+    {type:'qcm', prompt:'Sans tout calculer : quel vendeur a la plus grande part du CA en semaine 42 ?', choices:D.vend.map(v=>[v.nom, v===best]),
+     corr:`<b>${best.nom}</b>, car c'est son CA (${ent(best.ca2)} €) qui est le plus élevé. Le total est le même pour tout le monde, donc le plus gros CA donne la plus grande part.`},
+    {type:'qcm', prompt:'Si on additionne les parts du CA des cinq vendeurs, on obtient…', choices:[['100 %',true],['50 %',false],['le CA total en euros',false],['cela dépend des vendeurs',false]],
+     corr:'Les parts se partagent le tout : leur somme fait toujours <b>100 %</b> (à l\'arrondi près). C\'est un bon moyen de vérifier ses calculs.'}
+  ]},
+  { titre:'Taux d\'évolution', sous:'Ça monte ou ça descend ?', doc:()=>docVendeurs(D), qs:[
+    {type:'num', unit:'%', prompt:`Calcule le <b>taux d'évolution</b> du CA de <b>${A.nom}</b> entre la semaine 41 et la semaine 42.`, ans:tA,
+     hint:TAUX,
+     corr:`(${ent(A.ca2)} − ${ent(A.ca1)}) ÷ ${ent(A.ca1)} × 100 = <b>${sg(tA)} %</b>`,
+     traps:[{v:-tA, m:'Attention au signe : on fait toujours arrivée − départ.'},{v:(A.ca2-A.ca1)/A.ca2*100, m:'Tu as divisé par la valeur d\'arrivée. On divise toujours par la valeur de DÉPART (semaine 41).'},{v:A.ca2/A.ca1*100, m:'Tu as oublié la soustraction : (arrivée − départ) ÷ départ.'},{v:tA/100, m:'N\'oublie pas le × 100.'}]},
+    {type:'num', unit:'%', prompt:`Calcule le <b>taux d'évolution</b> du CA de <b>${B.nom}</b> entre la semaine 41 et la semaine 42.`, ans:tB,
+     hint:TAUX+'. Le résultat peut être négatif !',
+     corr:`(${ent(B.ca2)} − ${ent(B.ca1)}) ÷ ${ent(B.ca1)} × 100 = <b>${sg(tB)} %</b>`,
+     traps:[{v:-tB, m:'Regarde bien : le CA a baissé. Le taux doit être négatif (signe −).'},{v:(B.ca2-B.ca1)/B.ca2*100, m:'On divise par la valeur de DÉPART (semaine 41), pas celle d\'arrivée.'},{v:B.ca2/B.ca1*100, m:'Il manque la soustraction : (arrivée − départ) ÷ départ.'},{v:tB/100, m:'N\'oublie pas le × 100.'}]},
+    {type:'qcm', prompt:`Le CA de ${B.nom} a…`, choices:[[`diminué de ${fr(Math.abs(tB))} %`,true],[`augmenté de ${fr(Math.abs(tB))} %`,false],['stagné',false]],
+     corr:`Le taux est <b>négatif</b> : le CA a <b>diminué</b> (de ${ent(B.ca1)} € à ${ent(B.ca2)} €).`},
+    {type:'num', unit:'€', prompt:`De combien d'<b>euros</b> le CA de ${A.nom} a-t-il augmenté ?`, ans:A.ca2-A.ca1,
+     hint:'Écart = valeur d\'arrivée − valeur de départ',
+     corr:`${ent(A.ca2)} − ${ent(A.ca1)} = <b>${ent(A.ca2-A.ca1)} €</b>`, traps:[{v:A.ca1-A.ca2, m:'C\'est une hausse : arrivée − départ donne un nombre positif.'}]},
+    {type:'qcm', prompt:`Le taux de ${A.nom} est de ${sg(tA)} %. Quelle phrase l'explique correctement à la responsable ?`, choices:[
+      [`Le CA de ${A.nom} a augmenté de ${fr(tA)} %, soit ${ent(A.ca2-A.ca1)} € de ventes en plus.`,true],
+      [`${A.nom} a eu ${fr(tA)} % de clients en plus.`,false],
+      [`${A.nom} représente ${fr(tA)} % du CA du magasin.`,false],
+      [`Le CA de ${A.nom} a augmenté de ${fr(tA)} €.`,false]],
+     corr:'Un taux d\'évolution positif = une <b>hausse</b> du CA en pourcentage. Il ne parle ni des clients, ni de la part du CA, et ce n\'est pas un montant en euros.'}
+  ]},
+  { titre:'Statistiques', sous:'Effectifs, pourcentages, moyenne', doc:()=>docSalaries(D), qs:[
+    {type:'num', unit:'salariés', prompt:'Combien de <b>femmes</b> travaillent dans la brasserie ?', ans:F,
+     hint:'Femmes = total − hommes',
+     corr:`${D.T} − ${D.H} = <b>${F} femmes</b>`, traps:[{v:D.H, m:'Ça, c\'est le nombre d\'hommes !'},{v:D.T+D.H, m:'Il faut soustraire, pas additionner.'}]},
+    {type:'num', unit:'%', prompt:'Calcule le <b>pourcentage d\'hommes</b> dans la brasserie.', ans:pH,
+     hint:'Pourcentage = effectif ÷ effectif total × 100',
+     corr:`${D.H} ÷ ${D.T} × 100 = <b>${fr(pH)} %</b>`, traps:[{v:pH/100, m:'N\'oublie pas le × 100.'},{v:D.T/D.H*100, m:'La partie ÷ le tout, pas l\'inverse.'}]},
+    {type:'num', unit:'%', prompt:'Calcule le <b>pourcentage de femmes</b>.', ans:pF,
+     hint:'Pourcentage = effectif ÷ effectif total × 100. Astuce : 100 % − % d\'hommes.',
+     corr:`${F} ÷ ${D.T} × 100 = <b>${fr(pF)} %</b> (vérification : ${fr(pH)} + ${fr(pF)} = 100 %)`, traps:[{v:pF/100, m:'N\'oublie pas le × 100.'},{v:pH, m:'Ça, c\'est le pourcentage d\'hommes.'}]},
+    {type:'multi', prompt:'Complète la <b>part de chaque type de contrat</b> dans l\'effectif total (en %).', fields:D.contrats.map(c=>({label:c[0], eff:c[1], ans:c[1]/D.T*100})),
+     hint:`Part = effectif du contrat ÷ ${D.T} × 100`,
+     corr:D.contrats.map(c=>`${c[0]} : ${c[1]} ÷ ${D.T} × 100 = <b>${fr(c[1]/D.T*100)} %</b>`).join('<br>')},
+    {type:'num', unit:'salariés', prompt:'Calcule l\'<b>effectif moyen</b> de la brasserie entre 2021 et 2025.', ans:moy,
+     hint:'Moyenne = somme des valeurs ÷ nombre de valeurs',
+     corr:`(${D.y.join(' + ')}) ÷ 5 = ${sumY} ÷ 5 = <b>${fr(moy)} salariés</b>`, traps:[{v:sumY, m:'Tu as fait la somme : il faut encore diviser par le nombre d\'années (5).'},{v:sumY/4, m:'Il y a 5 années de 2021 à 2025, pas 4.'},{v:(D.y[0]+D.y[4])/2, m:'Il faut utiliser les 5 années, pas seulement la première et la dernière.'}]},
+    {type:'num', unit:'%', prompt:'Calcule le <b>taux d\'évolution de l\'effectif</b> entre 2021 et 2022.', ans:t12, hint:TAUX,
+     corr:`(${D.y[1]} − ${D.y[0]}) ÷ ${D.y[0]} × 100 = <b>${sg(t12)} %</b>`, traps:[{v:(D.y[1]-D.y[0])/D.y[1]*100, m:'On divise par la valeur de DÉPART (2021).'},{v:-t12, m:'Attention au signe : arrivée − départ.'},{v:t12/100, m:'N\'oublie pas le × 100.'}]},
+    {type:'num', unit:'%', prompt:'Calcule le <b>taux d\'évolution de l\'effectif</b> entre 2023 et 2024.', ans:t34, hint:TAUX,
+     corr:`(${D.y[3]} − ${D.y[2]}) ÷ ${D.y[2]} × 100 = <b>${sg(t34)} %</b>`, traps:[{v:-t34, m:'L\'effectif a baissé : le taux doit être négatif.'},{v:(D.y[3]-D.y[2])/D.y[3]*100, m:'On divise par la valeur de DÉPART (2023).'},{v:t34/100, m:'N\'oublie pas le × 100.'}]},
+    {type:'qcm', prompt:'Quel commentaire décrit correctement l\'évolution des effectifs entre 2021 et 2025 ?', choices:[
+      [`L'effectif a augmenté de ${D.y[4]-D.y[0]} salariés (${sg(t15)} %), malgré une baisse en 2024.`,true],
+      [`L'effectif a augmenté chaque année.`,false],
+      [`L'effectif a diminué de ${D.y[4]-D.y[0]} salariés.`,false],
+      [`L'effectif est resté stable.`,false]],
+     corr:`De ${D.y[0]} à ${D.y[4]} salariés : <b>+${D.y[4]-D.y[0]} salariés</b>, soit ${sg(t15)} %. Mais attention, il y a eu une baisse entre 2023 et 2024 : un bon commentaire donne la tendance générale <b>et</b> signale les exceptions.`}
+  ]},
+  { titre:'Excel', sous:'Faire calculer le tableur', doc:q=>docSheet(D,q.cell), qs:[
+    {type:'formula', cell:['E3'], prompt:'Écris la formule du <b>panier moyen</b> du premier vendeur en <b>E3</b>.', ok:['=C3/D3'],
+     hint:'Panier moyen = CA S42 ÷ clients. Une formule commence par =',
+     corr:'<span class="code">=C3/D3</span> : le CA de la semaine 42 (C3) divisé par le nombre de clients (D3).',
+     traps:[{f:'=D3/C3', m:'Mauvais sens : le CA (C3) divisé par les clients (D3).'},{f:'=B3/D3', m:'B3 est le CA de la semaine 41. Il faut celui de la semaine 42.'}]},
+    {type:'formula', cell:['C8'], prompt:'Écris la formule qui calcule le <b>CA total de la semaine 42</b> en <b>C8</b>.', ok:['=SOMME(C3:C7)','=SUM(C3:C7)','=C3+C4+C5+C6+C7'],
+     hint:'Fonction SOMME avec une plage de cellules : =SOMME(première:dernière)',
+     corr:'<span class="code">=SOMME(C3:C7)</span> : les deux-points « : » veulent dire « de C3 jusqu\'à C7 ».',
+     traps:[{f:'=SOMME(C3;C7)', m:'Avec « ; » Excel additionne seulement C3 et C7. Pour une plage, utilise « : ».'},{f:'=SOMME(C2:C7)', m:'C2 contient le titre de la colonne, commence à C3.'},{f:'=SOMME(C3:C8)', m:'C8 est la cellule où tu écris : elle ne peut pas s\'additionner elle-même.'}]},
+    {type:'formula', cell:['F3'], prompt:'Écris la formule de la <b>part du CA</b> du premier vendeur en <b>F3</b>, pour pouvoir la recopier vers le bas. Le CA total est en C8.', ok:['=C3/$C$8','=C3/$C$8*100','=C3/C$8','=C3/C$8*100','=(C3/$C$8)*100'],
+     hint:'CA du vendeur ÷ CA total. Le total doit rester bloqué quand on recopie : pense aux $.',
+     corr:'<span class="code">=C3/$C$8</span> puis format pourcentage. Les <b>$</b> bloquent la cellule C8 : quand on recopie, C3 devient C4, C5… mais $C$8 reste $C$8.',
+     traps:[{f:'=C3/C8', m:'Le calcul est juste pour F3, mais en recopiant, C8 deviendrait C9, C10… (cellules vides). Bloque le total avec des $ : $C$8.'},{f:'=C3/C8*100', m:'En recopiant, C8 deviendrait C9… Bloque le total : $C$8.'},{f:'=C8/C3', m:'Mauvais sens : la partie (C3) ÷ le tout (C8).'}]},
+    {type:'formula', cell:['G3'], prompt:'Écris la formule du <b>taux d\'évolution</b> du premier vendeur en <b>G3</b>.', ok:['=(C3-B3)/B3','=(C3-B3)/B3*100','=C3/B3-1','=((C3-B3)/B3)*100'],
+     hint:'(arrivée − départ) ÷ départ. Arrivée = C3, départ = B3. Attention aux parenthèses !',
+     corr:'<span class="code">=(C3-B3)/B3</span> puis format pourcentage. Les parenthèses obligent Excel à faire la soustraction <b>avant</b> la division.',
+     traps:[{f:'=C3-B3/B3', m:'Sans parenthèses, Excel fait d\'abord B3/B3 (=1) puis C3 − 1. Mets (C3-B3) entre parenthèses.'},{f:'=(B3-C3)/B3', m:'Arrivée − départ : C3 − B3, pas l\'inverse.'},{f:'=(C3-B3)/C3', m:'On divise par la valeur de départ : B3.'}]},
+    {type:'qcm', cell:['E3','E4','E5','E6','E7'], prompt:'La formule est écrite en E3. Comment obtenir automatiquement le panier moyen des autres vendeurs ?', choices:[
+      ['Sélectionner E3 et faire glisser la poignée de recopie (petit carré en bas à droite) jusqu\'à E7',true],
+      ['Retaper la même formule =C3/D3 dans chaque cellule',false],
+      ['Copier le résultat affiché en E3 et le coller en E4 à E7',false],
+      ['Appuyer sur Entrée cinq fois',false]],
+     corr:'On utilise la <b>poignée de recopie</b> : les références s\'adaptent toutes seules à chaque ligne.'},
+    {type:'formula', cell:['E5'], prompt:'Après la recopie, quelle formule se trouve en <b>E5</b> ?', ok:['=C5/D5'],
+     hint:'En descendant de 2 lignes, chaque numéro de ligne augmente de 2.',
+     corr:'<span class="code">=C5/D5</span> : en recopiant vers le bas, le 3 devient 4, puis 5. On appelle ça des <b>références relatives</b>.',
+     traps:[{f:'=C3/D3', m:'C\'est la formule de E3. En recopiant, les numéros de ligne changent.'}]},
+    {type:'qcm', cell:['F4'], prompt:'Un élève a écrit <span class="code">=C3/C8</span> en F3 puis l\'a recopiée. En F4, Excel affiche <b>#DIV/0!</b>. Pourquoi ?', choices:[
+      ['La formule en F4 est devenue =C4/C9, et C9 est vide : on divise par 0',true],
+      ['Le CA du vendeur 2 est égal à 0',false],
+      ['Il faut écrire DIVISER au lieu de /',false],
+      ['La cellule n\'est pas au format pourcentage',false]],
+     corr:'Sans <b>$</b>, C8 glisse en C9, cellule vide (= 0). Diviser par 0 donne #DIV/0!. La correction : <span class="code">=C3/$C$8</span>.'}
+  ]}
+  ];
+}
+
+/* ================= État du jeu ================= */
+let S = null;
+function newGame(eleve){
+  const D = genData();
+  const L = buildLevels(D);
+  const flat = [];
+  L.forEach((lv,li)=>lv.qs.forEach((q,qi)=>flat.push({li,qi,q})));
+  S = {eleve, name:eleve.prenom, D, L, flat, sent:false, i:0, score:0, streak:0, best:0, tries:0, hinted:false, done:false, res:flat.map(()=>null)};
+  renderQ();
+}
+const MAX = () => S.flat.length*10;
+
+/* ================= Rendus ================= */
+const app = $('#app');
+let lastInput = null;
+document.addEventListener('focusin', e=>{ if(e.target.matches('input.answer')) lastInput = e.target; });
+
+function renderIntro(){
+  window.calcMode?.(false);
+  let saved={prenom:'',nom:'',classe:''}; try{ saved = Object.assign(saved, JSON.parse(localStorage.getItem('defi-eleve')||'{}')); }catch(e){}
+  app.innerHTML = `
+  <section class="hero">
+    <span class="eyebrow">Calculs commerciaux, statistiques et Excel</span>
+    <h1>Le Défi du Magasin</h1>
+    <p class="lead">Cinq rayons à traverser, des chiffres tout neufs à chaque partie. Calcule, gagne des points, enchaîne les bonnes réponses. La calculatrice se déplace où tu veux.</p>
+  </section>
+  <div class="rayons">
+    ${[['Panier moyen','CA ÷ clients'],['Part du CA','partie ÷ tout × 100'],['Taux d\'évolution','hausse ou baisse ?'],['Statistiques','effectifs, %, moyenne'],['Excel','formules et recopie']].map((r,i)=>`<div class="rayon"><span class="n">${i+1}</span><div><b>${r[0]}</b><small>${r[1]}</small></div></div>`).join('')}
+  </div>
+  <div class="rules">
+    <h3>Règles du jeu</h3>
+    <ul>
+      <li>Bonne réponse du premier coup : <b>10 points</b>. Au deuxième essai : <b>5 points</b>.</li>
+      <li>Le bouton <b>Indice</b> montre la formule, mais retire 3 points.</li>
+      <li>Arrondis à <b>2 chiffres après la virgule</b>. Tu peux écrire 18,38 ou 18.38.</li>
+      <li>Pour un taux qui baisse, n'oublie pas le signe <b>−</b>.</li>
+      <li>Le bouton <b>→ Réponse</b> de la calculatrice recopie le résultat dans la case.</li>
+    </ul>
+  </div>
+  <form class="start-row" id="startForm">
+    <div class="field"><label for="prenom">Prénom</label><input class="text" id="prenom" required autocomplete="given-name" value="${esc(saved.prenom)}" placeholder="Ex. Camille"></div>
+    <div class="field"><label for="nom">Nom</label><input class="text" id="nom" required autocomplete="family-name" value="${esc(saved.nom)}" placeholder="Ex. Martin"></div>
+    <div class="field" style="flex-basis:120px"><label for="classe">Classe</label><input class="text" id="classe" required value="${esc(saved.classe)}" placeholder="Ex. 1re MCV A"></div>
+    <button class="btn" type="submit">Commencer le défi</button>
+  </form>
+  <p id="startErr" class="ctx" style="color:var(--bad)" hidden>Remplis ton prénom, ton nom et ta classe : ton professeur en a besoin pour retrouver ton résultat.</p>
+  <div id="teacherSlot"></div>`;
+  $('#startForm').addEventListener('submit', e=>{ e.preventDefault();
+    const el={prenom:$('#prenom').value.trim(), nom:$('#nom').value.trim(), classe:$('#classe').value.trim()};
+    if(!el.prenom||!el.nom||!el.classe){ $('#startErr').hidden=false; return; }
+    try{localStorage.setItem('defi-eleve',JSON.stringify(el));}catch(_){} newGame(el); });
+  paintTeacherSlot();
+}
+
+function hud(){
+  const {li} = S.flat[S.i]; const lv=S.L[li];
+  const track = S.flat.map((f,k)=>`<i class="${k===S.i?'cur':S.res[k]==null?'':S.res[k]>0?'done':'miss'}"></i>`).join('');
+  return `<div class="hud"><div class="lvl"><span class="eyebrow">Rayon ${li+1} / 5</span><b>${lv.titre}</b></div>
+   <div class="stats"><div class="stat streak"><span>Série</span><b>${S.streak}</b></div><div class="stat"><span>Score</span><b>${S.score}</b></div></div>
+   <div class="track" aria-hidden="true">${track}</div></div>`;
+}
+
+function renderQ(){
+  window.calcMode?.(true);
+  const {li,qi,q} = S.flat[S.i]; const lv=S.L[li];
+  S.tries=0; S.hinted=false; S.locked=false;
+  const nq = lv.qs.length;
+  let body='';
+  if(q.type==='num'){
+    body = `<div class="ans-row"><input class="answer" id="ans" inputmode="decimal" autocomplete="off" placeholder="Ta réponse" aria-label="Ta réponse"><span class="unit">${q.unit||''}</span></div>`;
+  } else if(q.type==='formula'){
+    body = `<div class="ans-row"><input class="answer" id="ans" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="=..." aria-label="Ta formule"></div>`;
+  } else if(q.type==='multi'){
+    body = `<div class="multi">${q.fields.map((f,k)=>`<label for="m${k}">${f.label}</label><input class="answer" id="m${k}" inputmode="decimal" autocomplete="off" placeholder="%"><span class="eff">${f.eff} sal.</span>`).join('')}</div>`;
+  } else {
+    const ch = shuffle(q.choices.map((c,k)=>({t:c[0],ok:c[1],k})));
+    body = `<div class="choices">${ch.map(c=>`<button class="choice" data-ok="${c.ok?1:0}">${c.t}</button>`).join('')}</div>`;
+  }
+  app.innerHTML = hud() + lv.doc(q) + `
+  <section class="card pop" id="card">
+    <div class="qnum"><span class="eyebrow">Question ${qi+1} / ${nq} · ${lv.sous}</span><span class="pts" id="pts">10 pts</span></div>
+    <p class="prompt">${q.prompt}</p>
+    ${body}
+    <div id="fb"></div>
+    <div class="actions"><div class="l">
+      ${q.type==='qcm'?'':'<button class="btn" id="check">Valider</button>'}
+      ${q.hint?'<button class="btn ghost small" id="hint">Indice (−3)</button>':''}
+    </div><button class="btn" id="next" hidden>${S.i===S.flat.length-1?'Voir mon résultat':'Question suivante →'}</button></div>
+  </section>`;
+  const inp = $('#ans') || $('#m0');
+  if(inp){ inp.focus({preventScroll:true}); lastInput=inp; }
+  app.querySelectorAll('input.answer').forEach(el=>el.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); if(!S.locked) check(); else next(); }}));
+  $('#check')?.addEventListener('click', check);
+  $('#hint')?.addEventListener('click', ()=>{ if(S.hinted||S.locked) return; S.hinted=true; $('#hint').disabled=true; showFb('hint','Indice', q.hint); updPts(); });
+  $('#next').addEventListener('click', next);
+  app.querySelectorAll('.choice').forEach(b=>b.addEventListener('click',()=>pick(b)));
+  window.scrollTo({top:0});
+}
+function potential(){ return Math.max(0,(S.tries===0?10:5) - (S.hinted?3:0)); }
+function updPts(){ $('#pts').textContent = potential()+' pts'; }
+function showFb(kind,title,html){ $('#fb').innerHTML = `<div class="fb ${kind}"><span class="t">${title}</span><div class="calcline">${html}</div></div>`; }
+
+function normF(s){ return s.toUpperCase().replace(/[\s ]/g,'').replace(/,/g,';').replace(/^=SUM\(/,'=SOMME(').replace(/[−–]/g,'-').replace(/×/g,'*').replace(/÷/g,'/'); }
+
+function check(){
+  if(S.locked) return;
+  const {q} = S.flat[S.i];
+  let ok=false, trapMsg=null;
+  if(q.type==='num'){
+    const raw=$('#ans').value; const v=parseNum(raw);
+    if(raw.trim()===''){ showFb('hint','Case vide','Écris un nombre avant de valider.'); return; }
+    if(isNaN(v)){ showFb('hint','Je ne comprends pas ce nombre','Écris seulement le nombre, par exemple <span class="code">18,38</span> ou <span class="code">-5</span>.'); return; }
+    ok = close(v,q.ans);
+    if(!ok && q.traps) for(const t of q.traps){ if(close(v,t.v)){ trapMsg=t.m; break; } }
+    if(!ok && !trapMsg && Math.abs(v-q.ans)<0.6) trapMsg='Tu es tout près : vérifie l\'arrondi à 2 chiffres après la virgule.';
+    $('#ans').classList.toggle('ok',ok); $('#ans').classList.toggle('bad',!ok);
+  } else if(q.type==='formula'){
+    const raw=$('#ans').value.trim();
+    if(!raw){ showFb('hint','Case vide','Écris ta formule.'); return; }
+    if(!raw.startsWith('=')){ showFb('hint','Il manque quelque chose','Dans Excel, une formule commence toujours par le signe <span class="code">=</span>. Ajoute-le, ça ne compte pas comme un essai.'); return; }
+    const f=normF(raw);
+    ok = q.ok.map(normF).includes(f);
+    if(!ok && q.traps) for(const t of q.traps){ if(normF(t.f)===f){ trapMsg=t.m; break; } }
+    $('#ans').classList.toggle('ok',ok); $('#ans').classList.toggle('bad',!ok);
+  } else if(q.type==='multi'){
+    let all=true, missing=false, forgot100=0;
+    q.fields.forEach((fl,k)=>{ const el=$('#m'+k); const v=parseNum(el.value); if(el.value.trim()==='') missing=true;
+      const good=!isNaN(v)&&close(v,fl.ans); if(!isNaN(v)&&close(v,fl.ans/100)) forgot100++;
+      el.classList.toggle('ok',good); el.classList.toggle('bad',!good); if(!good) all=false; });
+    if(missing && !all){ showFb('hint','Il manque des cases','Remplis les quatre lignes avant de valider.'); q.fields.forEach((f,k)=>$('#m'+k).classList.remove('bad')); return; }
+    ok=all; if(forgot100) trapMsg='N\'oublie pas le × 100 pour obtenir des pourcentages.';
+    else if(!ok) trapMsg='Les cases en rouge sont fausses. Astuce : le total des quatre parts doit faire 100 %.';
+  }
+  resolve(ok, trapMsg);
+}
+function pick(b){
+  if(S.locked||b.disabled) return;
+  const ok = b.dataset.ok==='1';
+  if(ok) b.classList.add('right'); else { b.classList.add('picked-bad'); b.disabled=true; }
+  resolve(ok, ok?null:'Ce n\'est pas cette réponse. Relis bien et réessaie.');
+}
+function resolve(ok, trapMsg){
+  const {q} = S.flat[S.i];
+  if(ok){
+    const g=potential(); S.score+=g; S.res[S.i]=g; S.streak++; S.best=Math.max(S.best,S.streak);
+    const bonus = S.streak>=3 ? ` Série de ${S.streak} !` : '';
+    showFb('ok', `Bravo ! +${g} pts.${bonus}`, q.corr); finishQ();
+  } else {
+    S.tries++; S.streak=0;
+    if(S.tries>=2){
+      S.res[S.i]=0; showFb('bad','Voici la correction', (trapMsg?`<span style="display:block;margin-bottom:6px">${trapMsg}</span>`:'')+q.corr);
+      if(q.type==='qcm') document.querySelectorAll('.choice').forEach(c=>{ if(c.dataset.ok==='1') c.classList.add('right'); });
+      finishQ();
+    } else {
+      showFb('bad','Pas encore, deuxième essai', trapMsg || 'Reprends ton calcul étape par étape.'); updPts();
+      const el=$('#ans'); if(el){ el.select(); }
+    }
+  }
+  const h=document.querySelector('.hud'); if(h) h.outerHTML=hud();
+}
+function finishQ(){
+  S.locked=true;
+  document.querySelectorAll('.choice').forEach(c=>c.disabled=true);
+  document.querySelectorAll('input.answer').forEach(c=>c.readOnly=true);
+  $('#check')?.remove(); $('#hint')?.remove(); $('#pts').remove();
+  const n=$('#next'); n.hidden=false; n.focus({preventScroll:true});
+}
+function next(){ if(S.i<S.flat.length-1){ S.i++; renderQ(); } else renderEnd(); }
+
+const MEMO = [
+  ['Panier moyen','CA ÷ nombre de clients'],
+  ['Part du CA / pourcentage','partie ÷ total × 100'],
+  ['Taux d\'évolution','(arrivée − départ) ÷ départ × 100'],
+  ['Effectif moyen','somme des valeurs ÷ nombre de valeurs'],
+  ['Effectif manquant','total − effectif connu'],
+  ['Excel : total','=SOMME(C3:C7)'],
+  ['Excel : bloquer une cellule','$C$8 ne bouge pas à la recopie'],
+  ['Excel : recopier','poignée de recopie (carré en bas à droite)']
+];
+function levelStats(){
+  return S.L.map((l,li)=>{ const idx=S.flat.map((f,k)=>f.li===li?k:-1).filter(k=>k>=0);
+    const got=idx.reduce((s,k)=>s+(S.res[k]||0),0), max=idx.length*10, p=got/max;
+    return {t:l.titre, got, max, p, st: p>=.8?3:p>=.5?2:p>0?1:0}; });
+}
+function hashCode(str){ let h=5381; for(let i=0;i<str.length;i++){ h=((h<<5)+h+str.charCodeAt(i))>>>0; } return h.toString(36).toUpperCase().padStart(7,'0').slice(-7); }
+function bodyLines(r){
+  const d=new Date(r.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});
+  return ['LE DÉFI DU MAGASIN — résultat',
+    `Élève : ${r.prenom} ${r.nom.toUpperCase()}`, `Classe : ${r.classe}`, `Date : ${d}`,
+    `Score : ${r.score} / ${r.max} soit ${fr(r.note)} / 20`,
+    ...r.rayons.map(x=>`${x.t} : ${x.got}/${x.max} (${x.got/x.max>=.6?'acquis':'à revoir'})`)];
+}
+const sealOf = lines => hashCode('mirabelle57|'+lines.map(l=>l.replace(/[\s  ]+/g,' ').trim()).filter(Boolean).join('|'));
+function summaryText(r){ const L=bodyLines(r); return [...L.slice(0,5),'',...L.slice(5),'',`Code de contrôle : ${sealOf(L)}`].join('\n'); }
+function buildResult(){
+  const ry=levelStats().map(x=>({t:x.t,got:x.got,max:x.max}));
+  return {prenom:S.eleve.prenom, nom:S.eleve.nom, classe:S.eleve.classe, date:new Date().toISOString(), score:S.score, max:MAX(), note:r2(S.score/MAX()*20), rayons:ry, serie:S.best};
+}
+
+function renderEnd(){
+  window.calcMode?.(false);
+  const pct = S.score/MAX();
+  const badge = pct>=.9?'Directeur·rice de magasin':pct>=.7?'Responsable de rayon':pct>=.5?'Vendeur·se confirmé·e':'Stagiaire motivé·e';
+  const lv = levelStats();
+  if(!S.result) S.result = buildResult();
+  const R = S.result;
+  const stars = n => `<span class="stars" aria-label="${n} étoiles sur 3">${[0,1,2].map(i=>i<n?'★':'<span class="off">★</span>').join('')}</span>`;
+  const now = new Date(R.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'});
+  app.innerHTML = `<section class="result pop">
+    <span class="eyebrow">Défi terminé · ${esc(R.prenom)} ${esc(R.nom)} · ${esc(R.classe)} · ${now}</span>
+    <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px"><span class="bigscore num">${S.score}<span style="font-size:.45em;color:var(--muted)"> / ${MAX()}</span></span><span class="badge">${badge}</span></div>
+    <p>Soit <b class="num">${fr(R.note)} / 20</b>. Meilleure série : <b>${S.best}</b> bonnes réponses d'affilée.</p>
+    <div class="sendbox" id="sendbox">
+      <h3>Envoie ton résultat à ton professeur</h3>
+      <p class="ctx" id="sendStatus">Préparation…</p>
+      <div class="send-actions">
+        <button class="btn" id="btnSend" hidden>Envoyer au professeur</button>
+        <button class="btn ghost" id="btnDl" hidden>Télécharger mon résultat</button>
+        <button class="btn ghost" id="btnCopy">Copier mon résultat</button>
+      </div>
+      <textarea id="sumTxt" class="sum" readonly rows="11" aria-label="Résumé de ton résultat">${esc(summaryText(R))}</textarea>
+    </div>
+    <div class="lvl-res">${lv.map(l=>`<div class="row"><b>${l.t}</b>${stars(l.st)}<span class="tag ${l.p>=.6?'ok':'bad'}">${l.p>=.6?'acquis':'à revoir'} · ${l.got}/${l.max}</span></div>`).join('')}</div>
+    <h2>Fiche mémo</h2>
+    <div class="memo">${MEMO.map(m=>`<div><b>${m[0]}</b><span class="f">${m[1]}</span></div>`).join('')}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn" id="again">Rejouer avec de nouveaux chiffres</button><button class="btn ghost" id="home">Accueil</button></div>
+  </section>`;
+  $('#again').onclick=()=>newGame(S.eleve); $('#home').onclick=renderIntro;
+  $('#btnCopy').onclick=copySummary;
+  $('#btnDl').onclick=downloadSummary;
+  $('#btnSend').onclick=()=>sendResult(true);
+  window.scrollTo({top:0});
+  setupSend();
+}
+
+/* ---------- Envoi / sauvegarde ---------- */
+const CAP = {db:null, user:null, dl:null, uid:null, owner:false, ready:false};
+const capReady = Promise.resolve(); CAP.ready=true;
+function setStatus(html){ const el=$('#sendStatus'); if(el) el.innerHTML=html; }
+async function setupSend(){
+  await capReady;
+  if(!$('#sendbox')) return;
+  $('#btnDl').hidden=false;
+  setStatus('<b>1.</b> Télécharge ton résultat ou copie-le. <b>2.</b> Envoie-le à ton professeur par la messagerie de l\'ENT (fichier en pièce jointe, ou texte collé dans le message). Ne modifie pas le texte : le code de contrôle permet au professeur de vérifier ta note.');
+}
+async function sendResult(manual){
+  if(!CAP.db||!CAP.uid||S.sending) return;
+  S.sending=true; $('#btnSend').hidden=true; setStatus('Envoi en cours…');
+  try{
+    const ref = CAP.db.doc('resultats/'+CAP.uid);
+    const prev = await ref.get();
+    const old = prev.exists ? prev.data() : {};
+    const hist = (Array.isArray(old.historique)?old.historique:[]).concat([{date:S.result.date, note:S.result.note}]).slice(-20);
+    await ref.set({ prenom:S.result.prenom, nom:S.result.nom, classe:S.result.classe, derniere:S.result,
+      meilleure:Math.max(S.result.note, typeof old.meilleure==='number'?old.meilleure:0), tentatives:hist.length, historique:hist, maj:S.result.date });
+    S.sent=true; setStatus('<b style="color:var(--ok)">Résultat envoyé au professeur.</b> Tu peux aussi le télécharger ou le copier pour le garder.');
+  }catch(e){
+    $('#btnSend').hidden=false;
+    setStatus(e&&e.code==='invalid_argument' ? 'Ton compte n\'a pas le droit d\'envoyer ici. Télécharge ou copie ton résultat et envoie-le à ton professeur.'
+      : 'L\'envoi n\'a pas marché. Vérifie ta connexion puis appuie sur « Envoyer au professeur ».');
+    if(e&&e.code==='invalid_argument') $('#btnSend').hidden=true;
+  } finally { S.sending=false; }
+}
+async function copySummary(){
+  const t=$('#sumTxt');
+  try{ await navigator.clipboard.writeText(t.value); $('#btnCopy').textContent='Copié !'; }
+  catch(_){ t.focus(); t.select(); $('#btnCopy').textContent='Texte sélectionné : fais Ctrl+C'; }
+}
+async function downloadSummary(){
+  const r=S.result; const fn=`resultat-defi-${(r.nom+'-'+r.prenom).replace(/[^\p{L}\p{N}-]+/gu,'_')}.txt`;
+  const url=URL.createObjectURL(new Blob([summaryText(r).replace(/\n/g,'\r\n')],{type:'text/plain;charset=utf-8'}));
+  const a=document.createElement('a'); a.href=url; a.download=fn; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),2000); $('#btnDl').textContent='Téléchargé ✓';
+}
+
+/* ---------- Espace professeur ---------- */
+function paintTeacherSlot(){ return;
+  const slot=$('#teacherSlot'); if(!slot) return;
+  if(CAP.owner && CAP.db) slot.innerHTML=`<div class="rules" style="flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:space-between"><div><b>Espace professeur</b><br><span class="ctx">Visible seulement par toi : les résultats envoyés par tes élèves.</span></div><button class="btn ghost" id="btnProf">Voir les résultats</button></div>`;
+  else slot.innerHTML='';
+  $('#btnProf')?.addEventListener('click', renderProf);
+}
+let unsubProf=null, profRows=[], profFilter='';
+function renderProf(){
+  window.calcMode?.(false);
+  app.innerHTML=`<section class="result">
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:end">
+      <div><span class="eyebrow">Espace professeur</span><h1 style="font-size:clamp(1.7rem,5vw,2.4rem)">Résultats des élèves</h1></div>
+      <button class="btn ghost small" id="profBack">← Accueil</button></div>
+    <div class="start-row"><div class="field"><label for="profClasse">Classe</label><select class="text" id="profClasse"><option value="">Toutes les classes</option></select></div>
+      <button class="btn" id="profCsv" ${CAP.dl?'':'hidden'}>Exporter pour Excel (.csv)</button></div>
+    <div id="profSum"></div>
+    <div class="tbl-wrap" id="profTbl"><p class="ctx">Chargement des résultats…</p></div>
+    <details class="rules"><summary><b>Vérifier un résultat reçu par mail</b></summary>
+      <p class="ctx">Colle le texte envoyé par l'élève : le code de contrôle indique si les chiffres ont été modifiés à la main.</p>
+      <textarea id="verTxt" class="sum" rows="8" aria-label="Texte du résultat à vérifier"></textarea>
+      <button class="btn small" id="verBtn">Vérifier</button><p id="verRes"></p></details>
+  </section>`;
+  $('#profBack').onclick=()=>{ unsubProf?.(); unsubProf=null; renderIntro(); };
+  $('#profClasse').onchange=e=>{ profFilter=e.target.value; paintProf(); };
+  $('#profCsv').onclick=exportCsv;
+  $('#verBtn').onclick=verifyText;
+  window.scrollTo({top:0});
+  if(!unsubProf) unsubProf = CAP.db.collection('resultats').onSnapshot(snap=>{ profRows=snap.docs.map(d=>({id:d.id,...d.data()})).filter(r=>r.derniere); paintProf(); },
+    ()=>{ const t=$('#profTbl'); if(t) t.innerHTML='<p class="ctx">Impossible de charger les résultats pour le moment. Recharge la page.</p>'; });
+  else paintProf();
+}
+function paintProf(){
+  const sel=$('#profClasse'); if(!sel) return;
+  const classes=[...new Set(profRows.map(r=>r.classe||''))].sort();
+  sel.innerHTML='<option value="">Toutes les classes</option>'+classes.map(c=>`<option ${c===profFilter?'selected':''}>${esc(c)}</option>`).join('');
+  const rows=profRows.filter(r=>!profFilter||r.classe===profFilter).sort((a,b)=>(a.nom||'').localeCompare(b.nom||'','fr')||(a.prenom||'').localeCompare(b.prenom||'','fr'));
+  if(!rows.length){ $('#profSum').innerHTML=''; $('#profTbl').innerHTML='<p class="ctx">Aucun résultat pour l\'instant. Les résultats apparaissent ici dès qu\'un élève termine le défi.</p>'; return; }
+  const titres=rows[0].derniere.rayons.map(x=>x.t);
+  const moy=rows.reduce((s,r)=>s+r.derniere.note,0)/rows.length;
+  const parR=titres.map((t,i)=>rows.reduce((s,r)=>s+r.derniere.rayons[i].got/r.derniere.rayons[i].max,0)/rows.length*100);
+  const faible=titres[parR.indexOf(Math.min(...parR))];
+  $('#profSum').innerHTML=`<div class="memo">
+    <div><b>${rows.length} élève${rows.length>1?'s':''}</b><span class="ctx">ont envoyé un résultat</span></div>
+    <div><b class="num">${fr(moy)} / 20</b><span class="ctx">moyenne (dernière tentative)</span></div>
+    <div><b>${esc(faible)}</b><span class="ctx">notion la moins réussie (${fr(Math.min(...parR),0)} %)</span></div></div>
+    <div class="lvl-res" style="margin-top:10px">${titres.map((t,i)=>`<div class="row"><b>${t}</b><span class="bar"><i style="width:${parR[i].toFixed(0)}%;background:${parR[i]>=60?'var(--ok)':'var(--bad)'}"></i></span><span class="tag ${parR[i]>=60?'ok':'bad'}">${fr(parR[i],0)} %</span></div>`).join('')}</div>`;
+  $('#profTbl').innerHTML=`<table><thead><tr><th>Élève</th><th>Classe</th><th>Date</th><th>Note /20</th><th>Meilleure</th><th>Essais</th>${titres.map(t=>`<th>${t}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(r=>`<tr><td>${esc((r.nom||'').toUpperCase())} ${esc(r.prenom||'')}</td><td>${esc(r.classe||'')}</td><td>${new Date(r.derniere.date).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}</td><td><b>${fr(r.derniere.note)}</b></td><td>${fr(r.meilleure||r.derniere.note)}</td><td>${r.tentatives||1}</td>${r.derniere.rayons.map(x=>`<td style="color:${x.got/x.max>=.6?'var(--ok)':'var(--bad)'}">${x.got}/${x.max}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+async function exportCsv(){
+  if(!CAP.dl) return;
+  const rows=profRows.filter(r=>!profFilter||r.classe===profFilter);
+  if(!rows.length) return;
+  const titres=rows[0].derniere.rayons.map(x=>x.t);
+  const q=v=>'"'+String(v??'').replace(/"/g,'""')+'"';
+  const lines=[['Nom','Prénom','Classe','Date','Score','Max','Note /20','Meilleure /20','Essais',...titres.map(t=>t+' (pts)')].map(q).join(';')];
+  rows.forEach(r=>lines.push([r.nom,r.prenom,r.classe,new Date(r.derniere.date).toLocaleString('fr-FR'),r.derniere.score,r.derniere.max,fr(r.derniere.note),fr(r.meilleure||r.derniere.note),r.tentatives||1,...r.derniere.rayons.map(x=>x.got)].map(q).join(';')));
+  try{ await CAP.dl.save({filename:`resultats-defi-${profFilter||'toutes-classes'}.csv`.replace(/\s+/g,'_'), data:'﻿'+lines.join('\r\n')}); }catch(_){}
+}
+function verifyText(){
+  const t=$('#verTxt').value, out=$('#verRes');
+  const lines=t.split(/\r?\n/);
+  const i0=lines.findIndex(l=>l.includes('DÉFI DU MAGASIN')), ic=lines.findIndex(l=>/Code de contr[ôo]le\s*:/.test(l));
+  if(i0<0||ic<0||ic<i0){ out.textContent='Texte incomplet : colle le résultat en entier, du titre jusqu\'au code de contrôle.'; return; }
+  const code=lines[ic].split(':').pop().trim();
+  const ok = sealOf(lines.slice(i0,ic))===code;
+  out.innerHTML = ok ? '<b style="color:var(--ok)">Code valide :</b> le texte n\'a pas été modifié depuis la fin du défi.' : '<b style="color:var(--bad)">Code invalide :</b> le texte a été modifié après la fin du défi.';
+}
+
+/* ================= Calculatrice ================= */
+const calc=$('#calc'), bar=$('#calcBar'), fab=$('#calcFab');
+let expr='', last=null, justEval=false;
+function evaluate(src){
+  const s = src.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-').replace(/,/g,'.');
+  const toks=[]; let i=0;
+  while(i<s.length){ const c=s[i];
+    if(/[0-9.]/.test(c)){ let j=i; while(j<s.length&&/[0-9.]/.test(s[j])) j++; const n=s.slice(i,j); if((n.match(/\./g)||[]).length>1) return NaN; toks.push({n:parseFloat(n)}); i=j; }
+    else if('+-*/()'.includes(c)){ toks.push({o:c}); i++; } else if(c===' '){i++;} else return NaN; }
+  let p=0;
+  const peek=()=>toks[p], eat=()=>toks[p++];
+  function E(){ let v=T(); while(peek()&&(peek().o==='+'||peek().o==='-')){ const o=eat().o; const r=T(); v=o==='+'?v+r:v-r; } return v; }
+  function T(){ let v=U(); while(peek()&&(peek().o==='*'||peek().o==='/')){ const o=eat().o; const r=U(); v=o==='*'?v*r:v/r; } return v; }
+  function U(){ if(peek()&&peek().o==='-'){ eat(); return -U(); } if(peek()&&peek().o==='+'){ eat(); return U(); } return P(); }
+  function P(){ const t=eat(); if(!t) return NaN; if(t.n!=null) return t.n; if(t.o==='('){ const v=E(); if(!peek()||peek().o!==')') return NaN; eat(); return v; } return NaN; }
+  const v=E(); if(p!==toks.length) return NaN; return v;
+}
+const fmtCalc = v => { if(!isFinite(v)) return 'Erreur'; const r=Math.round(v*1e8)/1e8; return r.toLocaleString('fr-FR',{maximumFractionDigits:8,useGrouping:false}); };
+function paint(){ $('#cExpr').textContent=expr; if(!justEval){ const v=expr?evaluate(expr):NaN; $('#cRes').textContent = expr? (isFinite(v)?fmtCalc(v):'…') : (last!=null?fmtCalc(last):'0'); } }
+function press(k){
+  if(k==='C'){ expr=''; justEval=false; $('#cRes').textContent='0'; paint(); return; }
+  if(k==='⌫'){ justEval=false; expr=expr.slice(0,-1); paint(); return; }
+  if(k==='='){ if(!expr) return; const v=evaluate(expr); $('#cPrev').textContent = expr+' ='; $('#cRes').textContent=fmtCalc(v); if(isFinite(v)) last=v; expr=''; justEval=true; $('#cExpr').textContent=''; return; }
+  if(k==='ANS'){ if(last==null) return; if(justEval){expr='';} justEval=false; expr+=fmtCalc(last); paint(); return; }
+  if(k==='INS'){ insertResult(); return; }
+  if(justEval){ justEval=false; if('+−×÷'.includes(k) && last!=null) expr=fmtCalc(last); else expr=''; }
+  expr+=k; paint();
+}
+function insertResult(){
+  let v = justEval||!expr ? last : evaluate(expr);
+  if(v==null||!isFinite(v)) return;
+  const el = lastInput && document.body.contains(lastInput) && !lastInput.readOnly ? lastInput : null;
+  if(!el){ $('#cPrev').textContent='Clique d\'abord dans une case réponse'; return; }
+  el.value = (Math.round(v*100)/100).toLocaleString('fr-FR',{maximumFractionDigits:2,useGrouping:false});
+  el.focus(); $('#cPrev').textContent='Recopié (arrondi à 0,01)';
+}
+$('#keys').addEventListener('click',e=>{ const b=e.target.closest('button'); if(b) press(b.dataset.k); });
+$('#keys').addEventListener('mousedown',e=>e.preventDefault()); // garde le focus dans la case réponse
+calc.addEventListener('keydown',e=>{
+  const m={'*':'×','x':'×','/':'÷','-':'−','+':'+','.':',',',':',','(':'(',')':')','Enter':'=','=':'=','Backspace':'⌫','Escape':'C','Delete':'C'};
+  if(/^[0-9]$/.test(e.key)){ press(e.key); e.preventDefault(); } else if(m[e.key]){ press(m[e.key]); e.preventDefault(); }
+});
+// déplacement
+function place(x,y){ const w=calc.offsetWidth,h=calc.offsetHeight; x=Math.min(Math.max(4,x),innerWidth-w-4); y=Math.min(Math.max(4,y),innerHeight-h-4); calc.style.left=x+'px'; calc.style.top=y+'px'; }
+let drag=null;
+bar.addEventListener('pointerdown',e=>{ if(e.target.closest('button')) return; const r=calc.getBoundingClientRect(); drag={dx:e.clientX-r.left,dy:e.clientY-r.top}; bar.setPointerCapture(e.pointerId); bar.classList.add('drag'); calc.focus({preventScroll:true}); });
+bar.addEventListener('pointermove',e=>{ if(drag) place(e.clientX-drag.dx,e.clientY-drag.dy); });
+const endDrag=()=>{ if(!drag) return; drag=null; bar.classList.remove('drag'); try{localStorage.setItem('defi-calc',JSON.stringify({x:calc.offsetLeft,y:calc.offsetTop}));}catch(_){} };
+bar.addEventListener('pointerup',endDrag); bar.addEventListener('pointercancel',endDrag);
+calc.addEventListener('pointerdown',()=>calc.focus({preventScroll:true}),true);
+function initPos(){ let p=null; try{p=JSON.parse(localStorage.getItem('defi-calc'));}catch(_){}
+  if(p) place(p.x,p.y); else place(innerWidth-calc.offsetWidth-16, innerHeight-calc.offsetHeight-16); }
+addEventListener('resize',()=>place(calc.offsetLeft,calc.offsetTop));
+let calcWanted = innerWidth>=640; // sur petit écran, réduite par défaut
+function showCalc(open){ calc.hidden=!open; fab.hidden=open; if(open) place(calc.offsetLeft,calc.offsetTop); }
+window.calcMode = inGame => { if(inGame) showCalc(calcWanted); else { calc.hidden=true; fab.hidden=true; } };
+$('#calcMin').onclick=()=>{ calcWanted=false; showCalc(false); };
+fab.onclick=()=>{ calcWanted=true; showCalc(true); };
+calc.hidden=false; initPos(); showCalc(false);
+
+renderIntro();
+</script>
+
+</body>
+</html>
